@@ -39,6 +39,120 @@ class SwitchCases;
 class BasicBlock;
 class Routine;
 
+// Optimization holds the optimization settings for code generation.
+class Optimization
+{
+public:
+	enum class Level
+	{
+		None,
+		Less,
+		Default,
+		Aggressive,
+	};
+
+	enum class Pass
+	{
+		Disabled,
+		InstructionCombining,
+		CFGSimplification,
+		LICM,
+		AggressiveDCE,
+		GVN,
+		Reassociate,
+		DeadStoreElimination,
+		SCCP,
+		ScalarReplAggregates,
+		EarlyCSEPass,
+
+		Count,
+	};
+
+	using Passes = std::vector<Pass>;
+
+	Optimization(Level level = Level::Default, const Passes &passes = {})
+	    : level(level)
+	    , passes(passes)
+	{
+#if defined(REACTOR_DEFAULT_OPT_LEVEL)
+		{
+			this->level = Level::REACTOR_DEFAULT_OPT_LEVEL;
+		}
+#endif
+	}
+
+	Level getLevel() const { return level; }
+	const Passes &getPasses() const { return passes; }
+
+private:
+	Level level = Level::Default;
+	Passes passes;
+};
+
+// Config holds the Reactor configuration settings.
+class Config
+{
+public:
+	// Edit holds a number of modifications to a config, that can be applied
+	// on an existing Config to produce a new Config with the specified
+	// changes.
+	class Edit
+	{
+	public:
+		static const Edit None;
+
+		Edit &set(Optimization::Level level)
+		{
+			optLevel = level;
+			optLevelChanged = true;
+			return *this;
+		}
+		Edit &add(Optimization::Pass pass)
+		{
+			optPassEdits.push_back({ ListEdit::Add, pass });
+			return *this;
+		}
+		Edit &remove(Optimization::Pass pass)
+		{
+			optPassEdits.push_back({ ListEdit::Remove, pass });
+			return *this;
+		}
+		Edit &clearOptimizationPasses()
+		{
+			optPassEdits.push_back({ ListEdit::Clear, Optimization::Pass::Disabled });
+			return *this;
+		}
+
+		Config apply(const Config &cfg) const;
+
+	private:
+		enum class ListEdit
+		{
+			Add,
+			Remove,
+			Clear
+		};
+		using OptPassesEdit = std::pair<ListEdit, Optimization::Pass>;
+
+		template<typename T>
+		void apply(const std::vector<std::pair<ListEdit, T>> &edits, std::vector<T> &list) const;
+
+		Optimization::Level optLevel;
+		bool optLevelChanged = false;
+		std::vector<OptPassesEdit> optPassEdits;
+	};
+
+	Config() = default;
+	Config(const Optimization &optimization)
+	    : optimization(optimization)
+	{}
+
+	const Optimization &getOptimization() const { return optimization; }
+
+private:
+	Optimization optimization;
+};
+
 class Nucleus
 {
 public:
@@ -46,6 +160,11 @@ public:
 
 	virtual ~Nucleus();
 
+	// Default configuration to use when no other configuration is specified.
+	// The new configuration will be applied to subsequent reactor calls.
+	static void setDefaultConfig(const Config &cfg);
+	static void adjustDefaultConfig(const Config::Edit &cfgEdit);
+	static Config getDefaultConfig();
 	std::shared_ptr<Routine> acquireRoutine(const char *name);
 
 	static Value *allocateStackVariable(Type *type, int arraySize = 0);
