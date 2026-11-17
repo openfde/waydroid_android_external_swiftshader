@@ -204,6 +204,17 @@ class CoroutineGenerator;
 
 namespace {
 
+// Default configuration settings. Must be accessed under mutex lock.
+std::mutex defaultConfigLock;
+rr::Config &defaultConfig()
+{
+	// This uses a static in a function to avoid the cost of a global static
+	// initializer. See http://neugierig.org/software/chromium/notes/2011/08/static-initializers.html
+	static rr::Config config = rr::Config::Edit()
+	                               .apply({});
+	return config;
+}
+
 // Used to automatically invoke llvm_shutdown() when driver is unloaded
 llvm::llvm_shutdown_obj llvmShutdownObj;
 
@@ -969,6 +980,25 @@ Nucleus::~Nucleus()
 	::basicBlockTop = nullptr;
 
 	::codegenMutex.unlock();
+}
+
+void Nucleus::setDefaultConfig(const Config &cfg)
+{
+	std::unique_lock<std::mutex> lock(::defaultConfigLock);
+	::defaultConfig() = cfg;
+}
+
+void Nucleus::adjustDefaultConfig(const Config::Edit &cfgEdit)
+{
+	std::unique_lock<std::mutex> lock(::defaultConfigLock);
+	auto &config = ::defaultConfig();
+	config = cfgEdit.apply(config);
+}
+
+Config Nucleus::getDefaultConfig()
+{
+	std::unique_lock<std::mutex> lock(::defaultConfigLock);
+	return ::defaultConfig();
 }
 
 // This function lowers and produces executable binary code in memory for the input functions,
@@ -3651,6 +3681,18 @@ Type *Half::type()
 	return T(Ice::IceType_i16);
 }
 
+RValue<Float> Rcp_pp(RValue<Float> x, bool exactAtPow2)
+{
+	RR_DEBUG_INFO_UPDATE_LOC();
+	return 1.0f / x;
+}
+
+RValue<Float> RcpSqrt_pp(RValue<Float> x)
+{
+	RR_DEBUG_INFO_UPDATE_LOC();
+	return Rcp_pp(Sqrt(x));
+}
+
 RValue<Float> Sqrt(RValue<Float> x)
 {
 	RR_DEBUG_INFO_UPDATE_LOC();
@@ -3768,6 +3810,18 @@ RValue<Float4> Min(RValue<Float4> x, RValue<Float4> y)
 	::basicBlock->appendInst(select);
 
 	return RValue<Float4>(V(result));
+}
+
+RValue<Float4> Rcp_pp(RValue<Float4> x, bool exactAtPow2)
+{
+	RR_DEBUG_INFO_UPDATE_LOC();
+	return Float4(1.0f) / x;
+}
+
+RValue<Float4> RcpSqrt_pp(RValue<Float4> x)
+{
+	RR_DEBUG_INFO_UPDATE_LOC();
+	return Rcp_pp(Sqrt(x));
 }
 
 bool HasRcpApprox()
