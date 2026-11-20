@@ -26,7 +26,6 @@ package {
 cc_defaults {
     name: "libswiftshader",
     vendor: true,
-    host_supported: true,
 
     defaults: [ "swiftshader_common" ],
 
@@ -360,10 +359,20 @@ cc_defaults {
 cc_library_shared {
     name: "libEGL_swiftshader",
 
+    compile_multilib: "32",
+
     defaults: [
         "libEGL_swiftshader_defaults",
         "swiftshader_client_libraries",
     ],
+}
+
+install_symlink {
+    name: "libEGL_proxy_symlink",
+    vendor: true,
+    installed_location: "lib/egl/libEGL_proxy.so",
+    symlink_target: "libEGL_swiftshader.so",
+    required: ["libEGL_swiftshader"],
 }
 
 cc_library_shared {
@@ -412,10 +421,20 @@ cc_defaults {
 cc_library_shared {
     name: "libGLESv1_CM_swiftshader",
 
+    compile_multilib: "32",
+
     defaults: [
         "libGLESv1_CM_swiftshader_defaults",
         "swiftshader_client_libraries",
     ],
+}
+
+install_symlink {
+    name: "libGLESv1_CM_proxy_symlink",
+    vendor: true,
+    installed_location: "lib/egl/libGLESv1_CM_proxy.so",
+    symlink_target: "libGLESv1_CM_swiftshader.so",
+    required: ["libGLESv1_CM_swiftshader"],
 }
 
 cc_library_shared {
@@ -472,12 +491,22 @@ cc_defaults {
 cc_library_shared {
     name: "libGLESv2_swiftshader",
 
+    compile_multilib: "32",
+
     defaults: [
         "libGLESv2_swiftshader_defaults",
         "swiftshader_client_libraries",
     ],
 
     static_libs: [ "libswiftshader_compiler" ],
+}
+
+install_symlink {
+    name: "libGLESv2_proxy_symlink",
+    vendor: true,
+    installed_location: "lib/egl/libGLESv2_proxy.so",
+    symlink_target: "libGLESv2_swiftshader.so",
+    required: ["libGLESv2_swiftshader"],
 }
 
 cc_library_shared {
